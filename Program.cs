@@ -16,6 +16,11 @@ namespace ReportWriter
             section.LineRows.Add(lineRow2);
             var collater = new Collater(@"D:\Harvey\OneDrive\IT\MyDoc.docx");
             collater.WriteSection(section);
+            var csv = new DataReaderCsv();
+            foreach(var t in csv.ReadCSV(@".\Data\FirstData.csv"))
+            {
+                Console.WriteLine($"{t.Title}: {t.Words}");
+            }
         }
     }
 }
