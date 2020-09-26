@@ -31,5 +31,9 @@ namespace ReportWriter
                 }
             }
         }
+        public void WriteLineRow()
+        {
+            
+        }
     }
 }
