@@ -29,7 +29,11 @@ namespace ReportWriter
                 section.LineRows.Add(lineRow2);
                 sections.SectionList.Add(section);
             }
-            collater.WriteDocument(sections);
+            Console.WriteLine("What is the title of the document?");
+            var title = Console.ReadLine();
+            Console.WriteLine("What header will be added?");
+            var headerText = Console.ReadLine();
+            collater.WriteDocument(title, headerText, sections);
 
         }
     }

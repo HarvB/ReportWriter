@@ -1,8 +1,7 @@
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml;
-using System.Collections.Generic;
-using System.Text;
+using System.Linq;
 
 namespace ReportWriter
 {
@@ -13,24 +12,38 @@ namespace ReportWriter
         {
             _doc = WordprocessingDocument.Create(fileName, WordprocessingDocumentType.Document);
         }
-        public void WriteDocument(Sections sections)
+        public void WriteDocument(string title, string headerText, Sections sections)
         {
                 using (_doc)
                 {
                     var mainPart = _doc.AddMainDocumentPart();
                     mainPart.Document = new Document();
+
                     var body = mainPart.Document.AppendChild(new Body());
+                    WriteTitle(body, title);
                     foreach(var section in sections.SectionList)
                     {
                         WriteSection(body, section);
                     }
-                    WriteHeader(mainPart);
+                    WriteHeader(mainPart, headerText);
                     AddSettingsToMainDocumentPart(mainPart);
                 }
+        }
+        private void WriteTitle(Body body, string title)
+        {
+            var para = body.AppendChild(new Paragraph());
+            var paraProps = para.AppendChild(new ParagraphProperties(new Justification{ Val = JustificationValues.Center }));
+            var run = para.AppendChild(new Run());
+            var runProperties = run.AppendChild(new RunProperties(new Bold(), new FontSize{ Val = new StringValue("48")}));
+            run.AppendChild(new Text(title));
         }
         private void WriteSection(Body body, Section section)
         {
             var para1 = body.AppendChild(new Paragraph());
+            var paraProps = new ParagraphProperties();
+            var spacing = new SpacingBetweenLines(){ Line = "240", LineRule = LineSpacingRuleValues.Auto, Before = "40", After = "0" };
+            paraProps.Append(spacing);
+            para1.Append(paraProps);
             var run1 = para1.AppendChild(new Run());
             var runProperties = run1.AppendChild(new RunProperties(new Bold()));
             run1.AppendChild(new Text(section.SectionTitle));
@@ -55,27 +68,29 @@ namespace ReportWriter
             run.AppendChild(new Text(txt));
             run.AppendChild(new Break());
         }
-        private void WriteHeader(MainDocumentPart mainPart)
+        private void WriteHeader(MainDocumentPart mainDocumentPart, string headerText)
         {
-            //mainPart.DeleteParts(mainPart.HeaderParts);
-            var headerPart = mainPart.AddNewPart<HeaderPart>("rId2");
-            var headerPartId = mainPart.GetIdOfPart(headerPart);
-            GenerateHeaderPartContent(headerPart);
-            IEnumerable<SectionProperties> sections = mainPart.Document.Body.Elements<SectionProperties>();
-
-                foreach (var section in sections)
+            if(!mainDocumentPart.HeaderParts.Any())
+            {
+                mainDocumentPart.DeleteParts(mainDocumentPart.HeaderParts);
+                var newHeaderPart = mainDocumentPart.AddNewPart<HeaderPart>();
+                var rId = mainDocumentPart.GetIdOfPart(newHeaderPart);
+                var headerRef = new HeaderReference { Id = rId };
+                var sectionProps = mainDocumentPart.Document.Body.Elements<SectionProperties>().LastOrDefault();
+                if(sectionProps == null)
                 {
-                    // Delete existing references to headers and footers
-                    section.RemoveAllChildren<HeaderReference>();
-
-                    // Create the new header and footer reference node
-                    section.PrependChild<HeaderReference>(new HeaderReference() { Id = headerPartId, Type = HeaderFooterValues.Default });
+                    sectionProps = new SectionProperties();
+                    mainDocumentPart.Document.Body.Append(sectionProps);
                 }
-                mainPart.Document.Save();
+                sectionProps.RemoveAllChildren<HeaderReference>();
+                sectionProps.Append(headerRef);
+                newHeaderPart.Header = GenerateHeaderPartContent(newHeaderPart, headerText);
+                newHeaderPart.Header.Save();
+            }
         }
-        private void GenerateHeaderPartContent(HeaderPart part)
+        private Header GenerateHeaderPartContent(HeaderPart part, string headerText)
         {
-            Header header1 = new Header() { MCAttributes = new MarkupCompatibilityAttributes() { Ignorable = "w14 wp14" } };
+            var header1 = new Header() { MCAttributes = new MarkupCompatibilityAttributes() { Ignorable = "w14 wp14" } };
             header1.AddNamespaceDeclaration("wpc", "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas");
             header1.AddNamespaceDeclaration("mc", "http://schemas.openxmlformats.org/markup-compatibility/2006");
             header1.AddNamespaceDeclaration("o", "urn:schemas-microsoft-com:office:office");
@@ -92,16 +107,16 @@ namespace ReportWriter
             header1.AddNamespaceDeclaration("wne", "http://schemas.microsoft.com/office/word/2006/wordml");
             header1.AddNamespaceDeclaration("wps", "http://schemas.microsoft.com/office/word/2010/wordprocessingShape");
 
-            Paragraph paragraph1 = new Paragraph() { RsidParagraphAddition = "00164C17", RsidRunAdditionDefault = "00164C17" };
+            var paragraph1 = new Paragraph() { RsidParagraphAddition = "00164C17", RsidRunAdditionDefault = "00164C17" };
 
-            ParagraphProperties paragraphProperties1 = new ParagraphProperties();
-            ParagraphStyleId paragraphStyleId1 = new ParagraphStyleId() { Val = "Header" };
+            var paragraphProperties1 = new ParagraphProperties();
+            var paragraphStyleId1 = new ParagraphStyleId() { Val = "Header" };
 
             paragraphProperties1.Append(paragraphStyleId1);
 
-            Run run1 = new Run();
-            Text text1 = new Text();
-            text1.Text = "Header";
+            var run1 = new Run();
+            var text1 = new Text();
+            text1.Text = headerText;
 
             run1.Append(text1);
 
@@ -110,8 +125,7 @@ namespace ReportWriter
 
             header1.Append(paragraph1);
 
-            part.Header = header1;
-            header1.Save();
+            return header1;
         }
         private void AddSettingsToMainDocumentPart(MainDocumentPart part)
         {
