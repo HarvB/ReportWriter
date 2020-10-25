@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using YamlDotNet.RepresentationModel;
 
 namespace ReportWriter
 {
@@ -6,10 +8,16 @@ namespace ReportWriter
     {
         static void Main(string[] args)
         {
-            var collater = new Collater(@"D:\Harvey\OneDrive\IT\MyDoc.docx");
-
+            var yaml = @".\Config\config.yaml";
+            using var sr = new StreamReader(yaml);
+            var serial = new YamlStream();
+            serial.Load(sr);
+            var outfile = serial.Documents[0].RootNode["outfile"];
+            var infile = serial.Documents[0].RootNode["infile"];
+            var collater = new Collater(outfile.ToString());
             var csv = new DataReaderCsv();
-            foreach(var t in csv.ReadCSV(@".\Data\FirstData.csv"))
+            var sections = new Sections();
+            foreach(var t in csv.ReadCSV(infile.ToString()))
             {
                 var section = new Section();
                 section.SectionTitle = t.Title;
@@ -19,9 +27,10 @@ namespace ReportWriter
                 lineRow2.LineText = t.More_Words;
                 section.LineRows.Add(lineRow1);
                 section.LineRows.Add(lineRow2);
-                collater.WriteSection(section);
+                sections.SectionList.Add(section);
             }
-                            
+            collater.WriteDocument(sections);
+
         }
     }
 }
